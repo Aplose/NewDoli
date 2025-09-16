@@ -22,14 +22,18 @@ export class ConfigGuard implements CanActivate {
 
   private checkConfiguration(): Observable<boolean> {
     return new Observable(observer => {
+      console.log('ConfigGuard: Checking configuration...');
       this.databaseService.getConfigurationValue('dolibarr_url').then(url => {
+        console.log('ConfigGuard: dolibarr_url =', url);
         if (url && this.isValidUrl(url)) {
           // URL is configured and valid, redirect to login
+          console.log('ConfigGuard: URL configured, redirecting to login');
           this.router.navigate(['/login']);
           observer.next(false);
           observer.complete();
         } else {
           // URL not configured or invalid, allow access to config page
+          console.log('ConfigGuard: URL not configured, allowing access to config');
           observer.next(true);
           observer.complete();
         }

@@ -2,7 +2,8 @@ import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { AuthService, LoginCredentials } from '../../services/auth.service';
+import { AuthService } from '../../services/auth.service';
+import { LoginCredentials } from '../../models';
 
 @Component({
   selector: 'app-login',

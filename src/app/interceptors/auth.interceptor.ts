@@ -24,10 +24,10 @@ export class AuthInterceptor implements HttpInterceptor {
     const token = this.getStoredToken();
     
     if (token) {
-      // Clone the request and add the authorization header
+      // Clone the request and add the Dolibarr API key header
       const authReq = req.clone({
         setHeaders: {
-          'Authorization': `Bearer ${token}`,
+          'DOLAPIKEY': token,
           'Content-Type': 'application/json'
         }
       });
@@ -79,9 +79,8 @@ export class AuthInterceptor implements HttpInterceptor {
 
   private getStoredToken(): string | null {
     try {
-      // This is a synchronous method, so we'll need to handle this differently
-      // For now, return null and let the auth service handle token validation
-      return null;
+      const token = this.authService.authState().token;
+      return token;
     } catch {
       return null;
     }

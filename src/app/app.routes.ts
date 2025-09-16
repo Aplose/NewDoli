@@ -24,75 +24,83 @@ export const routes: Routes = [
   {
     path: 'dashboard',
     loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent),
-    canActivate: [ConfigGuard, AuthGuard]
+    canActivate: [AuthGuard]
   },
   {
     path: 'users',
     loadComponent: () => import('./pages/users/users.component').then(m => m.UsersComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['user_read'] }
   },
   {
     path: 'users/new',
     loadComponent: () => import('./pages/users/user-form/user-form.component').then(m => m.UserFormComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['user_write'] }
   },
   {
     path: 'users/:id/edit',
     loadComponent: () => import('./pages/users/user-form/user-form.component').then(m => m.UserFormComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['user_write'] }
   },
   {
     path: 'groups',
     loadComponent: () => import('./pages/groups/groups.component').then(m => m.GroupsComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['group_read'] }
   },
   {
     path: 'groups/new',
     loadComponent: () => import('./pages/groups/group-form/group-form.component').then(m => m.GroupFormComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['group_write'] }
   },
   {
     path: 'groups/:id/edit',
     loadComponent: () => import('./pages/groups/group-form/group-form.component').then(m => m.GroupFormComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['group_write'] }
   },
   {
     path: 'third-parties',
     loadComponent: () => import('./pages/third-parties/third-parties.component').then(m => m.ThirdPartiesComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['thirdparty_read'] }
   },
   {
     path: 'third-parties/new',
     loadComponent: () => import('./pages/third-parties/third-party-form/third-party-form.component').then(m => m.ThirdPartyFormComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['thirdparty_write'] }
   },
   {
     path: 'third-parties/:id/edit',
     loadComponent: () => import('./pages/third-parties/third-party-form/third-party-form.component').then(m => m.ThirdPartyFormComponent),
-    canActivate: [ConfigGuard, AuthGuard, PermissionGuard],
+    canActivate: [AuthGuard, PermissionGuard],
     data: { permissions: ['thirdparty_write'] }
   },
   {
     path: 'settings',
     loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent),
-    canActivate: [ConfigGuard, AuthGuard]
+    canActivate: [AuthGuard]
   },
   {
     path: 'field-visibility',
     loadComponent: () => import('./pages/field-visibility/field-visibility.component').then(m => m.FieldVisibilityComponent),
-    canActivate: [ConfigGuard, AuthGuard, AdminGuard]
+    canActivate: [AuthGuard, AdminGuard]
   },
   {
     path: 'debug-config',
     loadComponent: () => import('./debug-config.component').then(m => m.DebugConfigComponent)
+  },
+  {
+    path: 'debug-auth',
+    loadComponent: () => import('./debug-auth.component').then(m => m.DebugAuthComponent)
+  },
+  {
+    path: 'test-third-parties',
+    loadComponent: () => import('./test-third-parties.component').then(m => m.TestThirdPartiesComponent)
   },
   {
     path: 'test-login-simple',

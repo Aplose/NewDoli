@@ -1,23 +1,12 @@
 import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { Observable, of, throwError } from 'rxjs';
 import { map, catchError, tap, switchMap } from 'rxjs/operators';
-import { DatabaseService, User } from './database.service';
-import { DolibarrApiService, DolibarrUser } from './dolibarr-api.service';
+import { Router } from '@angular/router';
+import { DatabaseService } from './database.service';
+import { DolibarrApiService } from './dolibarr-api.service';
 import { ConfigService } from './config.service';
-
-export interface LoginCredentials {
-  login: string;
-  password: string;
-}
-
-export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  token: string | null;
-  permissions: string[];
-  isLoading: boolean;
-  error: string | null;
-}
+import { LoginCredentials, AuthState, User } from '../models';
+import { DolibarrUser } from '../models';
 
 @Injectable({
   providedIn: 'root'
@@ -27,13 +16,15 @@ export class AuthService {
   private databaseService = inject(DatabaseService);
   private dolibarrApiService = inject(DolibarrApiService);
   private configService = inject(ConfigService);
+  private router = inject(Router);
 
   // Main auth state signal
-  private authState = signal<AuthState>({
+  public authState = signal<AuthState>({
     isAuthenticated: false,
     user: null,
     token: null,
     permissions: [],
+    rights: {},
     isLoading: false,
     error: null
   });
@@ -42,6 +33,7 @@ export class AuthService {
   public readonly isAuthenticated = computed(() => this.authState().isAuthenticated);
   public readonly currentUser = computed(() => this.authState().user);
   public readonly userPermissions = computed(() => this.authState().permissions);
+  public readonly userRights = computed(() => this.authState().rights);
   public readonly isLoading = computed(() => this.authState().isLoading);
   public readonly error = computed(() => this.authState().error);
   public readonly isAdmin = computed(() => this.currentUser()?.admin || false);
@@ -62,14 +54,20 @@ export class AuthService {
   // Method to check if user is authenticated based on Dolibarr token
   async isUserAuthenticated(): Promise<boolean> {
     try {
-      const dolibarrToken = await this.databaseService.getConfigurationValue(this.DOLIBARR_TOKEN_KEY);
-      if (dolibarrToken) {
-        // If we have a Dolibarr token, check if it's valid
+      const dolibarrApiKey = await this.databaseService.getConfigurationValue(this.DOLIBARR_API_KEY);
+      if (dolibarrApiKey) {
+        // If we have a Dolibarr API key, check if it's valid
         try {
-          await this.dolibarrApiService.validateToken(dolibarrToken).toPromise();
+          await this.dolibarrApiService.validateToken(dolibarrApiKey).toPromise();
+          
+          // If API key is valid, try to load user info if not already loaded
+          if (!this.authState().isAuthenticated) {
+            await this.loadUserInfoFromStorage();
+          }
+          
           return true;
         } catch (error) {
-          console.warn('Dolibarr token is invalid:', error);
+          console.warn('Dolibarr API key is invalid:', error);
           return false;
         }
       }
@@ -82,7 +80,56 @@ export class AuthService {
 
   private readonly AUTH_TOKEN_KEY = 'newdoli_auth_token';
   private readonly USER_DATA_KEY = 'newdoli_user_data';
-  private readonly DOLIBARR_TOKEN_KEY = 'dolibarr_token';
+  private readonly DOLIBARR_API_KEY = 'dolibarr_api_key';
+
+  // Method to load user info from storage
+  private async loadUserInfoFromStorage(): Promise<void> {
+    try {
+      console.log('Loading user info from storage...');
+      const token = localStorage.getItem(this.AUTH_TOKEN_KEY);
+      const userInfoConfig = await this.databaseService.getConfigurationValue('user-info');
+      
+      console.log('Storage data:', {
+        hasToken: !!token,
+        hasUserInfo: !!userInfoConfig,
+        userInfoType: typeof userInfoConfig,
+        userInfoKeys: userInfoConfig ? Object.keys(userInfoConfig) : []
+      });
+      
+      if (token && userInfoConfig) {
+        // userInfoConfig is already parsed by getConfigurationValue
+        const userInfo = userInfoConfig;
+        
+        console.log('User info from storage:', {
+          user: userInfo.user,
+          permissions: userInfo.permissions,
+          rights: userInfo.rights
+        });
+        
+        // Restore auth state using signals
+        this.setAuthState({
+          isAuthenticated: true,
+          user: userInfo.user,
+          token: token,
+          permissions: userInfo.permissions || [],
+          rights: userInfo.rights || {},
+          isLoading: false,
+          error: null
+        });
+        
+        console.log('User info loaded from storage:', {
+          user: userInfo.user?.login,
+          admin: userInfo.user?.admin,
+          permissions: userInfo.permissions?.length || 0,
+          rights: Object.keys(userInfo.rights || {}).length
+        });
+      } else {
+        console.log('No user info found in storage');
+      }
+    } catch (error) {
+      console.error('Error loading user info from storage:', error);
+    }
+  }
 
   constructor() {
     this.initializeAuth();
@@ -101,50 +148,26 @@ export class AuthService {
 
   private async initializeAuth(): Promise<void> {
     try {
-      // First check if Dolibarr token exists in database
-      const dolibarrToken = await this.databaseService.getConfigurationValue(this.DOLIBARR_TOKEN_KEY);
+      // First check if Dolibarr API key exists in database
+      const dolibarrApiKey = await this.databaseService.getConfigurationValue(this.DOLIBARR_API_KEY);
       
-      if (dolibarrToken) {
+      if (dolibarrApiKey) {
         try {
-          // Test if token is still valid
-          await this.dolibarrApiService.validateToken(dolibarrToken).toPromise();
+          // Test if API key is still valid
+          await this.dolibarrApiService.validateToken(dolibarrApiKey).toPromise();
           
-          // Token is valid, check for local auth data
-          const token = localStorage.getItem(this.AUTH_TOKEN_KEY);
-          const userData = localStorage.getItem(this.USER_DATA_KEY);
-          
-          if (token && userData) {
-            try {
-              const user = JSON.parse(userData);
-              
-              // Restore auth state using signals
-              this.setAuthState({
-                isAuthenticated: true,
-                user: user,
-                token: token,
-                permissions: user.permissions || [],
-                isLoading: false,
-                error: null
-              });
-            } catch (error) {
-              console.error('Error parsing stored user data:', error);
-              this.clearAuthData();
-            }
-          } else {
-            // No local auth data, but Dolibarr token is valid
-            // This means we need to re-authenticate locally
-            this.clearAuthData();
-          }
+          // API key is valid, load user info from storage
+          await this.loadUserInfoFromStorage();
         } catch (error) {
-          console.warn('Dolibarr token is invalid, clearing auth data');
+          console.warn('Dolibarr API key is invalid, clearing auth data');
           this.clearAuthData();
         }
       } else {
-        // No Dolibarr token, clear auth data
+        // No Dolibarr API key, clear auth data
         this.clearAuthData();
       }
     } catch (error) {
-      console.error('Error checking Dolibarr token:', error);
+      console.error('Error checking Dolibarr API key:', error);
       this.clearAuthData();
     }
   }
@@ -173,26 +196,31 @@ export class AuthService {
     }
   }
 
-  private async performLogin(dolibarrToken: string, credentials: LoginCredentials): Promise<boolean> {
+  private async performLogin(dolibarrApiKey: string, credentials: LoginCredentials): Promise<boolean> {
     try {
-      // Store Dolibarr token in configuration
+      // Store Dolibarr API key in configuration
       await this.databaseService.setConfiguration(
-        this.DOLIBARR_TOKEN_KEY,
-        dolibarrToken,
+        this.DOLIBARR_API_KEY,
+        dolibarrApiKey,
         'string',
-        'Dolibarr API token'
+        'Dolibarr API key'
       );
 
-      // For now, create a basic user from login credentials
-      // In a real implementation, you would call getUserInfo with the token
+      // Get real user information from Dolibarr API with permissions
+      const userInfo = await this.dolibarrApiService.getUserInfo(dolibarrApiKey).toPromise();
+      
+      if (!userInfo) {
+        throw new Error('Failed to get user information');
+      }
+
       const user: User = {
-        id: 1, // Temporary ID, should be fetched from API
-        login: credentials.login,
-        firstname: credentials.login,
-        lastname: 'User',
-        email: `${credentials.login}@example.com`,
-        admin: false,
-        active: true,
+        id: userInfo.id,
+        login: userInfo.login,
+        firstname: userInfo.firstname || '',
+        lastname: userInfo.lastname || '',
+        email: userInfo.email || '',
+        admin: userInfo.admin || false,
+        active: userInfo.active || false,
         created_at: new Date(),
         updated_at: new Date(),
         last_login: new Date()
@@ -213,11 +241,20 @@ export class AuthService {
         await this.databaseService.addUser(user);
       }
 
-      // Get user permissions
-      const permissions = await this.getUserPermissions(user);
+      // Extract permissions and rights from userInfo
+      const permissions = userInfo.permissions || [];
+      const rights = userInfo.rights || {};
 
       // Generate local token for session management
       const localToken = this.generateToken(user);
+
+      // Store user info in configuration
+      await this.databaseService.setConfiguration(
+        'user-info',
+        { user, permissions, rights },
+        'json',
+        'Current user information with permissions'
+      );
 
       // Update auth state using signals
       this.setAuthState({
@@ -225,6 +262,7 @@ export class AuthService {
         user: user,
         token: localToken,
         permissions: permissions,
+        rights: rights,
         isLoading: false,
         error: null
       });
@@ -244,18 +282,21 @@ export class AuthService {
     this.setError(null);
     
     try {
-      // Get Dolibarr token and logout from API
-      const dolibarrToken = await this.databaseService.getConfigurationValue(this.DOLIBARR_TOKEN_KEY);
-      if (dolibarrToken) {
+      // Get Dolibarr API key and logout from API
+      const dolibarrApiKey = await this.databaseService.getConfigurationValue(this.DOLIBARR_API_KEY);
+      if (dolibarrApiKey) {
         try {
-          await this.dolibarrApiService.logout(dolibarrToken).toPromise();
+          await this.dolibarrApiService.logout(dolibarrApiKey).toPromise();
         } catch (error) {
           console.warn('Failed to logout from Dolibarr API:', error);
         }
       }
 
-      // Clear Dolibarr token from configuration
-      await this.databaseService.setConfiguration(this.DOLIBARR_TOKEN_KEY, '', 'string');
+      // Clear Dolibarr API key from configuration
+      await this.databaseService.setConfiguration(this.DOLIBARR_API_KEY, '', 'string');
+      
+      // Clear user info from configuration
+      await this.databaseService.setConfiguration('user-info', '', 'string');
     } catch (error) {
       console.warn('Error during logout:', error);
     } finally {
@@ -266,9 +307,13 @@ export class AuthService {
         user: null,
         token: null,
         permissions: [],
+        rights: {},
         isLoading: false,
         error: null
       });
+      
+      // Redirect to login page
+      this.router.navigate(['/login']);
     }
   }
 
@@ -298,6 +343,7 @@ export class AuthService {
       user: null,
       token: null,
       permissions: [],
+      rights: {},
       isLoading: false,
       error: null
     });
@@ -392,12 +438,38 @@ export class AuthService {
 
   // Method to check if user can access a specific module
   canAccessModule(module: string): boolean {
+    const user = this.currentUser();
+    const rights = this.userRights();
     const permissions = this.userPermissions();
-    return permissions.some(permission => 
+    
+    console.log(`Checking access for module '${module}':`, {
+      user: user?.login,
+      admin: user?.admin,
+      permissions: permissions,
+      rights: rights,
+      moduleRights: rights[module]
+    });
+    
+    // Admin users have access to all modules
+    if (user?.admin) {
+      console.log(`Access granted to '${module}': User is admin`);
+      return true;
+    }
+    
+    // Check if user has rights for this module
+    if (rights[module] && rights[module].length > 0) {
+      console.log(`Access granted to '${module}': User has rights`);
+      return true;
+    }
+    
+    // Check permissions for backward compatibility
+    const hasPermission = permissions.some(permission => 
       permission.startsWith(`${module}_`) || 
-      permission === `${module}_all` ||
-      this.isAdmin()
+      permission === `${module}_all`
     );
+    
+    console.log(`Access to '${module}': ${hasPermission ? 'granted' : 'denied'} (permissions check)`);
+    return hasPermission;
   }
 
   // Method to get user's accessible modules

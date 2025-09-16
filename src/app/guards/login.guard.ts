@@ -23,10 +23,13 @@ export class LoginGuard implements CanActivate {
 
   private checkConfiguration(): Observable<boolean> {
     return new Observable(observer => {
+      console.log('LoginGuard: Checking authentication...');
       // First check if user is already authenticated
       this.authService.isUserAuthenticated().then(isAuthenticated => {
+        console.log('LoginGuard: isAuthenticated =', isAuthenticated);
         if (isAuthenticated) {
           // User is already logged in, redirect to dashboard
+          console.log('LoginGuard: User authenticated, redirecting to dashboard');
           this.router.navigate(['/dashboard']);
           observer.next(false);
           observer.complete();
@@ -35,12 +38,15 @@ export class LoginGuard implements CanActivate {
 
         // Check if Dolibarr URL is configured
         this.databaseService.getConfigurationValue('dolibarr_url').then(url => {
+          console.log('LoginGuard: dolibarr_url =', url);
           if (url && this.isValidUrl(url)) {
             // URL is configured and valid, allow access to login
+            console.log('LoginGuard: URL configured, allowing access to login');
             observer.next(true);
             observer.complete();
           } else {
             // URL not configured or invalid, redirect to config
+            console.log('LoginGuard: URL not configured, redirecting to config');
             this.router.navigate(['/config']);
             observer.next(false);
             observer.complete();

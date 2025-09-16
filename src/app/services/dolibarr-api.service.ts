@@ -3,28 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { map, catchError, switchMap } from 'rxjs/operators';
 import { DatabaseService } from './database.service';
-
-export interface DolibarrLoginResponse {
-  success: {
-    code: number;
-    token: string;
-    entity: string;
-    message: string;
-  };
-  error?: string;
-}
-
-export interface DolibarrUser {
-  id: number;
-  login: string;
-  firstname: string;
-  lastname: string;
-  email: string;
-  admin: boolean;
-  active: boolean;
-  groups?: number[];
-  permissions?: string[];
-}
+import { DolibarrLoginResponse, DolibarrUser } from '../models';
 
 @Injectable({
   providedIn: 'root'
@@ -71,17 +50,20 @@ export class DolibarrApiService {
   }
 
   /**
-   * Get user information from Dolibarr API
+   * Get user information from Dolibarr API with permissions
    */
   getUserInfo(token: string): Observable<DolibarrUser> {
-    return this.getApiUrl$(`${this.USER_ENDPOINT}/me`).pipe(
+    return this.getApiUrl$(`${this.USER_ENDPOINT}/info`).pipe(
       switchMap(url => {
         const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
+          'DOLAPIKEY': token,
           'Content-Type': 'application/json'
         });
 
-        return this.http.get<DolibarrUser>(url, { headers });
+        // Add includepermissions parameter to get user permissions
+        const urlWithParams = `${url}?includepermissions=1`;
+
+        return this.http.get<DolibarrUser>(urlWithParams, { headers });
       }),
       catchError(error => {
         console.error('Dolibarr API user info error:', error);
@@ -94,10 +76,10 @@ export class DolibarrApiService {
    * Test if token is still valid
    */
   validateToken(token: string): Observable<boolean> {
-    return this.getApiUrl$(`${this.USER_ENDPOINT}/me`).pipe(
+    return this.getApiUrl$(`${this.USER_ENDPOINT}/info`).pipe(
       switchMap(url => {
         const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
+          'DOLAPIKEY': token,
           'Content-Type': 'application/json'
         });
 
@@ -117,7 +99,7 @@ export class DolibarrApiService {
     return this.getApiUrl$(this.USER_ENDPOINT).pipe(
       switchMap(url => {
         const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
+          'DOLAPIKEY': token,
           'Content-Type': 'application/json'
         });
 
@@ -137,7 +119,7 @@ export class DolibarrApiService {
     return this.getApiUrl$('thirdparties').pipe(
       switchMap(url => {
         const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
+          'DOLAPIKEY': token,
           'Content-Type': 'application/json'
         });
 
@@ -157,7 +139,7 @@ export class DolibarrApiService {
     return this.getApiUrl$('groups').pipe(
       switchMap(url => {
         const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
+          'DOLAPIKEY': token,
           'Content-Type': 'application/json'
         });
 
@@ -177,7 +159,7 @@ export class DolibarrApiService {
     return this.getApiUrl$('logout').pipe(
       switchMap(url => {
         const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
+          'DOLAPIKEY': token,
           'Content-Type': 'application/json'
         });
 
