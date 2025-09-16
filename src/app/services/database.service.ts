@@ -5,6 +5,7 @@ import {
   Group, 
   Permission, 
   ThirdParty, 
+  Product,
   FieldVisibility, 
   SyncLog, 
   Configuration 
@@ -16,6 +17,7 @@ export class NewDoliDatabase extends Dexie {
   groups!: Table<Group>;
   permissions!: Table<Permission>;
   thirdParties!: Table<ThirdParty>;
+  products!: Table<Product>;
   fieldVisibility!: Table<FieldVisibility>;
   syncLog!: Table<SyncLog>;
   configurations!: Table<Configuration>;
@@ -28,6 +30,7 @@ export class NewDoliDatabase extends Dexie {
       groups: '++id, name, created_at, updated_at',
       permissions: '++id, name, module, created_at',
       thirdParties: '++id, name, name_alias, email, client, supplier, prospect, status, created_at, updated_at, last_contact',
+      products: '++id, ref, label, type, status, category, price, priceTTC, stock, created_at, updated_at, lastModified',
       fieldVisibility: '++id, user_id, entity_type, field_name, visible, created_at, updated_at',
       syncLog: '++id, entity_type, entity_id, action, synced, created_at, synced_at',
       configurations: 'key, value, type, created_at, updated_at'
@@ -81,6 +84,17 @@ export class NewDoliDatabase extends Dexie {
 
     this.configurations.hook('updating', function (modifications: any, primKey, obj, trans) {
       modifications.updated_at = new Date();
+    });
+
+    this.products.hook('creating', function (primKey, obj, trans) {
+      obj.created_at = new Date();
+      obj.updated_at = new Date();
+      obj.lastModified = new Date();
+    });
+
+    this.products.hook('updating', function (modifications: any, primKey, obj, trans) {
+      modifications.updated_at = new Date();
+      modifications.lastModified = new Date();
     });
   }
 }
@@ -327,12 +341,66 @@ export class DatabaseService {
     await this.db.configurations.delete(key);
   }
 
+  // Products methods
+  async getAllProducts(): Promise<Product[]> {
+    return await this.db.products.orderBy('lastModified').reverse().toArray();
+  }
+
+  async getProductById(id: number): Promise<Product | undefined> {
+    return await this.db.products.get(id);
+  }
+
+  async searchProducts(query: string, filters?: { type?: 'product' | 'service', status?: string, category?: string }): Promise<Product[]> {
+    let collection = this.db.products.orderBy('lastModified').reverse();
+
+    if (query.trim()) {
+      const searchTerm = query.toLowerCase();
+      collection = collection.filter(product => 
+        product.label.toLowerCase().includes(searchTerm) ||
+        product.ref.toLowerCase().includes(searchTerm) ||
+        (product.description && product.description.toLowerCase().includes(searchTerm)) ||
+        product.category.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filters?.type) {
+      collection = collection.filter(product => product.type === filters.type);
+    }
+
+    if (filters?.status) {
+      collection = collection.filter(product => product.statusLabel === filters.status);
+    }
+
+    if (filters?.category) {
+      collection = collection.filter(product => product.category === filters.category);
+    }
+
+    return await collection.toArray();
+  }
+
+  async addProduct(product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'lastModified'>): Promise<number> {
+    return await this.db.products.add(product as Product);
+  }
+
+  async updateProduct(id: number, product: Partial<Product>): Promise<number> {
+    return await this.db.products.update(id, product);
+  }
+
+  async deleteProduct(id: number): Promise<void> {
+    await this.db.products.delete(id);
+  }
+
+  async clearProducts(): Promise<void> {
+    await this.db.products.clear();
+  }
+
   async clearAllData(): Promise<void> {
     await this.db.transaction('rw', [
       this.db.users,
       this.db.groups,
       this.db.permissions,
       this.db.thirdParties,
+      this.db.products,
       this.db.fieldVisibility,
       this.db.syncLog,
       this.db.configurations

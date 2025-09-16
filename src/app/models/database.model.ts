@@ -83,6 +83,25 @@ export interface SyncLog {
   error?: string;
 }
 
+export interface Product {
+  id?: number;
+  ref: string;
+  label: string;
+  description?: string;
+  type: 'product' | 'service';
+  price: number;
+  priceTTC: number;
+  status: number;
+  statusLabel: string;
+  category: string;
+  stock: number;
+  stockAlert: number;
+  imageUrl?: string;
+  created_at: Date;
+  updated_at: Date;
+  lastModified: Date;
+}
+
 export interface Configuration {
   key: string;
   value: string;

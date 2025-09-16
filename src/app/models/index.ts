@@ -17,5 +17,8 @@ export * from './dolibarr.model';
 // Third parties models
 export * from './third-parties.model';
 
+// Products models
+export * from './products.model';
+
 // Connectivity models
 export * from './connectivity.model';

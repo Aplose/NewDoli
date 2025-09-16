@@ -81,6 +81,12 @@ export const routes: Routes = [
     data: { permissions: ['thirdparty_write'] }
   },
   {
+    path: 'products',
+    loadComponent: () => import('./pages/products/products.component').then(m => m.ProductsComponent),
+    canActivate: [AuthGuard, PermissionGuard],
+    data: { permissions: ['product_read'] }
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent),
     canActivate: [AuthGuard]

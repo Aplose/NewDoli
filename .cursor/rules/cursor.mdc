@@ -52,6 +52,11 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 - Use the `providedIn: 'root'` option for singleton services
 - Use the `inject()` function instead of constructor injection
 
+## Interfaces
+- Create all new interfaces in models directory
+- Use one file per interface
+- avoid duplicate interfaces
+
 ## Documentation
 
 - Do NOT create documentation files for routine code changes

@@ -14,6 +14,8 @@ export class PageTitleService {
     'groups/new': 'New Group',
     'third-parties': 'Third Parties',
     'third-parties/new': 'New Third Party',
+    'products': 'Products & Services',
+    'products/new': 'New Product',
     'settings': 'Settings',
     'field-visibility': 'Field Visibility',
     'config': 'Configuration',
