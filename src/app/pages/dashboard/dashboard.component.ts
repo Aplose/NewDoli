@@ -9,16 +9,6 @@ import { AuthService } from '../../services/auth.service';
   imports: [CommonModule, RouterModule],
   template: `
     <div class="dashboard">
-      <header class="dashboard-header">
-        <div class="header-content">
-          <h1>Dashboard</h1>
-          <div class="user-info">
-            <span>Welcome, {{ currentUser()?.firstname }} {{ currentUser()?.lastname }}</span>
-            <button (click)="logout()" class="btn btn-outline">Logout</button>
-          </div>
-        </div>
-      </header>
-
       <main class="dashboard-main">
         <div class="dashboard-grid">
           <div class="dashboard-card" *ngIf="canAccessModule('user')">
@@ -107,9 +97,5 @@ export class DashboardComponent implements OnInit {
 
   canAccessModule(module: string): boolean {
     return this.authService.canAccessModule(module);
-  }
-
-  logout(): void {
-    this.authService.logout();
   }
 }

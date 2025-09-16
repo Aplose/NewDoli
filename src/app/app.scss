@@ -1,0 +1,41 @@
+// Styles globaux pour l'application
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+// Ajustement pour la barre de navigation fixe
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+
+// Styles globaux pour tous les composants de pages
+app-dashboard,
+app-users,
+app-groups,
+app-third-parties,
+app-settings,
+app-field-visibility,
+app-config,
+app-login,
+app-unauthorized,
+app-not-found {
+  display: block;
+  width: 100%;
+  min-height: calc(100vh - 60px);
+  
+  @media (max-width: 768px) {
+    min-height: calc(100vh - 56px);
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  router-outlet {
+    margin-top: 56px; // Ajustement pour mobile
+    min-height: calc(100vh - 56px);
+  }
+}
+

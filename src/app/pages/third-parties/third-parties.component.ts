@@ -17,13 +17,6 @@ import { ThirdPartySearchResult } from '../../models';
         <div class="header-content">
           <h1>Third Parties</h1>
           <div class="header-actions">
-            <div class="connectivity-status" [class.online]="isOnline()" [class.offline]="!isOnline()">
-              <span class="status-indicator"></span>
-              <span class="status-text">{{ isOnline() ? 'Online' : 'Offline' }}</span>
-              <span *ngIf="lastSync()" class="last-sync">
-                Last sync: {{ lastSync() | date:'short' }}
-              </span>
-            </div>
             <button 
               class="btn btn-primary" 
               (click)="refresh()"
@@ -196,11 +189,11 @@ import { ThirdPartySearchResult } from '../../models';
               <div class="contact-info" *ngIf="thirdParty.email || thirdParty.phone">
                 <div *ngIf="thirdParty.email" class="contact-item">
                   <span class="contact-icon">📧</span>
-                  <span class="contact-value">{{ thirdParty.email }}</span>
+                  <a [href]="'mailto:' + thirdParty.email" class="contact-value contact-link">{{ thirdParty.email }}</a>
                 </div>
                 <div *ngIf="thirdParty.phone" class="contact-item">
                   <span class="contact-icon">📞</span>
-                  <span class="contact-value">{{ thirdParty.phone }}</span>
+                  <a [href]="'tel:' + thirdParty.phone" class="contact-value contact-link">{{ thirdParty.phone }}</a>
                 </div>
               </div>
 
