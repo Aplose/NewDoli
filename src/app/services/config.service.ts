@@ -1,45 +1,93 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { DatabaseService } from './database.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ConfigService {
+  // Inject database service using inject() function
+  private databaseService = inject(DatabaseService);
+
   private configState = signal<{
     dolibarrUrl: string | null;
     isConfigured: boolean;
+    isLoading: boolean;
+    error: string | null;
   }>({
     dolibarrUrl: null,
-    isConfigured: false
+    isConfigured: false,
+    isLoading: false,
+    error: null
   });
 
   // Public readonly signals
   public readonly dolibarrUrl = computed(() => this.configState().dolibarrUrl);
   public readonly isConfigured = computed(() => this.configState().isConfigured);
+  public readonly isLoading = computed(() => this.configState().isLoading);
+  public readonly error = computed(() => this.configState().error);
 
   private readonly DOLIBARR_URL_KEY = 'dolibarr_url';
 
-  constructor(private databaseService: DatabaseService) {
+  constructor() {
     this.initializeConfig();
+    
+    // Effect to handle config state changes
+    effect(() => {
+      const state = this.configState();
+      console.log('Config state changed:', {
+        dolibarrUrl: state.dolibarrUrl,
+        isConfigured: state.isConfigured,
+        isLoading: state.isLoading,
+        error: state.error
+      });
+    });
+  }
+
+  // Signal-based state management methods
+  private setLoading(loading: boolean): void {
+    this.configState.update(state => ({ ...state, isLoading: loading }));
+  }
+
+  private setError(error: string | null): void {
+    this.configState.update(state => ({ ...state, error }));
+  }
+
+  private setConfigState(updates: Partial<{
+    dolibarrUrl: string | null;
+    isConfigured: boolean;
+    isLoading: boolean;
+    error: string | null;
+  }>): void {
+    this.configState.update(state => ({ ...state, ...updates }));
   }
 
   private async initializeConfig(): Promise<void> {
+    this.setLoading(true);
+    this.setError(null);
+    
     try {
       const url = await this.databaseService.getConfigurationValue(this.DOLIBARR_URL_KEY);
-      this.configState.set({
+      this.setConfigState({
         dolibarrUrl: url || null,
-        isConfigured: !!url
+        isConfigured: !!url,
+        isLoading: false,
+        error: null
       });
     } catch (error) {
       console.error('Error loading configuration:', error);
-      this.configState.set({
+      this.setConfigState({
         dolibarrUrl: null,
-        isConfigured: false
+        isConfigured: false,
+        isLoading: false,
+        error: 'Failed to load configuration'
       });
     }
   }
 
   async setDolibarrUrl(url: string): Promise<void> {
+    this.setLoading(true);
+    this.setError(null);
+    
     try {
       // Validate URL format
       if (!this.isValidUrl(url)) {
@@ -56,12 +104,16 @@ export class ConfigService {
         'Dolibarr server URL'
       );
 
-      this.configState.set({
+      this.setConfigState({
         dolibarrUrl: normalizedUrl,
-        isConfigured: true
+        isConfigured: true,
+        isLoading: false,
+        error: null
       });
     } catch (error) {
       console.error('Error setting Dolibarr URL:', error);
+      this.setError(error instanceof Error ? error.message : 'Failed to set URL');
+      this.setLoading(false);
       throw error;
     }
   }
@@ -71,15 +123,45 @@ export class ConfigService {
   }
 
   async getDolibarrUrl(): Promise<string | null> {
-    return await this.databaseService.getConfigurationValue(this.DOLIBARR_URL_KEY);
+    // Return from signal state if available, otherwise fetch from database
+    const currentUrl = this.dolibarrUrl();
+    if (currentUrl) {
+      return currentUrl;
+    }
+    
+    try {
+      const url = await this.databaseService.getConfigurationValue(this.DOLIBARR_URL_KEY);
+      if (url) {
+        this.setConfigState({
+          dolibarrUrl: url,
+          isConfigured: true
+        });
+      }
+      return url;
+    } catch (error) {
+      console.error('Error getting Dolibarr URL:', error);
+      return null;
+    }
   }
 
   async clearDolibarrUrl(): Promise<void> {
-    await this.databaseService.deleteConfiguration(this.DOLIBARR_URL_KEY);
-    this.configState.set({
-      dolibarrUrl: null,
-      isConfigured: false
-    });
+    this.setLoading(true);
+    this.setError(null);
+    
+    try {
+      await this.databaseService.deleteConfiguration(this.DOLIBARR_URL_KEY);
+      this.setConfigState({
+        dolibarrUrl: null,
+        isConfigured: false,
+        isLoading: false,
+        error: null
+      });
+    } catch (error) {
+      console.error('Error clearing Dolibarr URL:', error);
+      this.setError(error instanceof Error ? error.message : 'Failed to clear URL');
+      this.setLoading(false);
+      throw error;
+    }
   }
 
   private isValidUrl(url: string): boolean {

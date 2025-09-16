@@ -3,21 +3,23 @@ import { AuthGuard } from './guards/auth.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { AdminGuard } from './guards/admin.guard';
 import { ConfigGuard } from './guards/config.guard';
+import { LoginGuard } from './guards/login.guard';
 
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: '/config',
+    redirectTo: '/login',
     pathMatch: 'full'
   },
   {
     path: 'config',
-    loadComponent: () => import('./pages/config/config.component').then(m => m.ConfigComponent)
+    loadComponent: () => import('./pages/config/config.component').then(m => m.ConfigComponent),
+    canActivate: [ConfigGuard]
   },
   {
     path: 'login',
     loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent),
-    canActivate: [ConfigGuard]
+    canActivate: [LoginGuard]
   },
   {
     path: 'dashboard',
@@ -87,6 +89,18 @@ export const routes: Routes = [
     path: 'field-visibility',
     loadComponent: () => import('./pages/field-visibility/field-visibility.component').then(m => m.FieldVisibilityComponent),
     canActivate: [ConfigGuard, AuthGuard, AdminGuard]
+  },
+  {
+    path: 'debug-config',
+    loadComponent: () => import('./debug-config.component').then(m => m.DebugConfigComponent)
+  },
+  {
+    path: 'test-login-simple',
+    loadComponent: () => import('./test-login-simple.component').then(m => m.TestLoginSimpleComponent)
+  },
+  {
+    path: 'test-redirect',
+    loadComponent: () => import('./test-redirect.component').then(m => m.TestRedirectComponent)
   },
   {
     path: 'unauthorized',

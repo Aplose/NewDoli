@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ConfigService } from '../../services/config.service';
@@ -42,28 +42,28 @@ import { AuthService } from '../../services/auth.service';
               </div>
             </div>
 
-            <div *ngIf="errorMessage" class="error-message global-error">
-              {{ errorMessage }}
+            <div *ngIf="errorMessage()" class="error-message global-error">
+              {{ errorMessage() }}
             </div>
 
-            <div *ngIf="successMessage" class="success-message">
-              {{ successMessage }}
+            <div *ngIf="successMessage()" class="success-message">
+              {{ successMessage() }}
             </div>
 
             <div class="form-actions">
               <button
                 type="submit"
                 class="btn btn-primary"
-                [disabled]="configForm.invalid || isLoading"
+                [disabled]="configForm.invalid || isLoading()"
               >
-                <span *ngIf="isLoading" class="spinner"></span>
-                {{ isLoading ? 'Saving...' : 'Save Configuration' }}
+                <span *ngIf="isLoading()" class="spinner"></span>
+                {{ isLoading() ? 'Saving...' : 'Save Configuration' }}
               </button>
               <button
                 type="button"
                 class="btn btn-outline"
                 (click)="resetForm()"
-                [disabled]="isLoading"
+                [disabled]="isLoading()"
               >
                 Reset
               </button>
@@ -118,9 +118,18 @@ import { AuthService } from '../../services/auth.service';
 })
 export class SettingsComponent implements OnInit {
   configForm: FormGroup;
-  isLoading = false;
-  errorMessage = '';
-  successMessage = '';
+  
+  // Signals for component state
+  private errorMessageSignal = signal('');
+  private successMessageSignal = signal('');
+  
+  // Computed signals
+  public readonly errorMessage = computed(() => this.errorMessageSignal());
+  public readonly successMessage = computed(() => this.successMessageSignal());
+  public readonly isLoading = computed(() => this.configService.isLoading());
+  public readonly currentUser = computed(() => this.authService.currentUser());
+  public readonly isAdmin = computed(() => this.authService.isAdmin());
+
   constructor(
     private formBuilder: FormBuilder,
     private configService: ConfigService,
@@ -132,14 +141,6 @@ export class SettingsComponent implements OnInit {
         Validators.pattern(/^https?:\/\/.+/)
       ]]
     });
-  }
-
-  get currentUser() {
-    return this.authService.currentUser;
-  }
-
-  get isAdmin() {
-    return this.authService.isAdmin;
   }
 
   ngOnInit(): void {
@@ -156,30 +157,28 @@ export class SettingsComponent implements OnInit {
       }
     } catch (error) {
       console.error('Error loading current configuration:', error);
+      this.errorMessageSignal.set('Failed to load current configuration');
     }
   }
 
   async onSubmit(): Promise<void> {
     if (this.configForm.valid) {
-      this.isLoading = true;
-      this.errorMessage = '';
-      this.successMessage = '';
+      this.errorMessageSignal.set('');
+      this.successMessageSignal.set('');
 
       try {
         const url = this.configForm.value.dolibarrUrl;
         await this.configService.setDolibarrUrl(url);
         
-        this.successMessage = 'Configuration updated successfully!';
+        this.successMessageSignal.set('Configuration updated successfully!');
         
         // Clear success message after 3 seconds
         setTimeout(() => {
-          this.successMessage = '';
+          this.successMessageSignal.set('');
         }, 3000);
         
       } catch (error: any) {
-        this.errorMessage = error.message || 'Failed to save configuration. Please try again.';
-      } finally {
-        this.isLoading = false;
+        this.errorMessageSignal.set(error.message || 'Failed to save configuration. Please try again.');
       }
     } else {
       // Mark all fields as touched to show validation errors
@@ -191,8 +190,8 @@ export class SettingsComponent implements OnInit {
 
   resetForm(): void {
     this.loadCurrentConfig();
-    this.errorMessage = '';
-    this.successMessage = '';
+    this.errorMessageSignal.set('');
+    this.successMessageSignal.set('');
   }
 
   logout(): void {

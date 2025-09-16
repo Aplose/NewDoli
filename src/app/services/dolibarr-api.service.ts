@@ -1,22 +1,17 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
-import { ConfigService } from './config.service';
+import { map, catchError, switchMap } from 'rxjs/operators';
+import { DatabaseService } from './database.service';
 
 export interface DolibarrLoginResponse {
-  success: boolean;
-  token?: string;
-  error?: string;
-  user?: {
-    id: number;
-    login: string;
-    firstname: string;
-    lastname: string;
-    email: string;
-    admin: boolean;
-    active: boolean;
+  success: {
+    code: number;
+    token: string;
+    entity: string;
+    message: string;
   };
+  error?: string;
 }
 
 export interface DolibarrUser {
@@ -41,27 +36,28 @@ export class DolibarrApiService {
 
   constructor(
     private http: HttpClient,
-    private configService: ConfigService
+    private databaseService: DatabaseService
   ) {}
 
   /**
    * Authenticate user with Dolibarr API
    */
   login(login: string, password: string): Observable<DolibarrLoginResponse> {
-    const url = this.getApiUrl(this.LOGIN_ENDPOINT);
-    
-    const body = {
-      login: login,
-      password: password
-    };
+    return this.getApiUrl$(this.LOGIN_ENDPOINT).pipe(
+      switchMap(url => {
+        const body = {
+          login: login,
+          password: password
+        };
 
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json'
-    });
+        const headers = new HttpHeaders({
+          'Content-Type': 'application/json'
+        });
 
-    return this.http.post<DolibarrLoginResponse>(url, body, { headers }).pipe(
+        return this.http.post<DolibarrLoginResponse>(url, body, { headers });
+      }),
       map(response => {
-        if (response.success && response.token) {
+        if (response.success && response.success.token) {
           return response;
         } else {
           throw new Error(response.error || 'Login failed');
@@ -78,14 +74,15 @@ export class DolibarrApiService {
    * Get user information from Dolibarr API
    */
   getUserInfo(token: string): Observable<DolibarrUser> {
-    const url = this.getApiUrl(`${this.USER_ENDPOINT}/me`);
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+    return this.getApiUrl$(`${this.USER_ENDPOINT}/me`).pipe(
+      switchMap(url => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    return this.http.get<DolibarrUser>(url, { headers }).pipe(
+        return this.http.get<DolibarrUser>(url, { headers });
+      }),
       catchError(error => {
         console.error('Dolibarr API user info error:', error);
         return throwError(() => new Error('Failed to get user information'));
@@ -97,14 +94,15 @@ export class DolibarrApiService {
    * Test if token is still valid
    */
   validateToken(token: string): Observable<boolean> {
-    const url = this.getApiUrl(`${this.USER_ENDPOINT}/me`);
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+    return this.getApiUrl$(`${this.USER_ENDPOINT}/me`).pipe(
+      switchMap(url => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    return this.http.get(url, { headers }).pipe(
+        return this.http.get(url, { headers });
+      }),
       map(() => true),
       catchError(() => {
         return throwError(() => new Error('Token is invalid'));
@@ -116,14 +114,15 @@ export class DolibarrApiService {
    * Get users list from Dolibarr API
    */
   getUsers(token: string): Observable<DolibarrUser[]> {
-    const url = this.getApiUrl(this.USER_ENDPOINT);
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+    return this.getApiUrl$(this.USER_ENDPOINT).pipe(
+      switchMap(url => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    return this.http.get<DolibarrUser[]>(url, { headers }).pipe(
+        return this.http.get<DolibarrUser[]>(url, { headers });
+      }),
       catchError(error => {
         console.error('Dolibarr API get users error:', error);
         return throwError(() => new Error('Failed to get users'));
@@ -135,14 +134,15 @@ export class DolibarrApiService {
    * Get third parties from Dolibarr API
    */
   getThirdParties(token: string): Observable<any[]> {
-    const url = this.getApiUrl('thirdparties');
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+    return this.getApiUrl$('thirdparties').pipe(
+      switchMap(url => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    return this.http.get<any[]>(url, { headers }).pipe(
+        return this.http.get<any[]>(url, { headers });
+      }),
       catchError(error => {
         console.error('Dolibarr API get third parties error:', error);
         return throwError(() => new Error('Failed to get third parties'));
@@ -154,14 +154,15 @@ export class DolibarrApiService {
    * Get groups from Dolibarr API
    */
   getGroups(token: string): Observable<any[]> {
-    const url = this.getApiUrl('groups');
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+    return this.getApiUrl$('groups').pipe(
+      switchMap(url => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    return this.http.get<any[]>(url, { headers }).pipe(
+        return this.http.get<any[]>(url, { headers });
+      }),
       catchError(error => {
         console.error('Dolibarr API get groups error:', error);
         return throwError(() => new Error('Failed to get groups'));
@@ -173,14 +174,15 @@ export class DolibarrApiService {
    * Logout from Dolibarr API
    */
   logout(token: string): Observable<any> {
-    const url = this.getApiUrl('logout');
-    
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
+    return this.getApiUrl$('logout').pipe(
+      switchMap(url => {
+        const headers = new HttpHeaders({
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
 
-    return this.http.post(url, {}, { headers }).pipe(
+        return this.http.post(url, {}, { headers });
+      }),
       catchError(error => {
         console.error('Dolibarr API logout error:', error);
         // Don't throw error for logout, just log it
@@ -192,18 +194,37 @@ export class DolibarrApiService {
   /**
    * Get API URL for a specific endpoint
    */
-  private getApiUrl(endpoint: string): string {
-    const baseUrl = this.configService.getApiUrl();
-    return `${baseUrl}${endpoint}`;
+  private async getApiUrl(endpoint: string): Promise<string> {
+    const dolibarrUrl = await this.databaseService.getConfigurationValue('dolibarr_url');
+    if (!dolibarrUrl) {
+      throw new Error('Dolibarr URL not configured');
+    }
+    
+    // Ensure the URL ends with a slash
+    const baseUrl = dolibarrUrl.endsWith('/') ? dolibarrUrl : `${dolibarrUrl}/`;
+    return `${baseUrl}api/index.php/${endpoint}`;
+  }
+
+  /**
+   * Get API URL as Observable for a specific endpoint
+   */
+  private getApiUrl$(endpoint: string): Observable<string> {
+    return new Observable(observer => {
+      this.getApiUrl(endpoint).then(url => {
+        observer.next(url);
+        observer.complete();
+      }).catch(error => {
+        observer.error(error);
+      });
+    });
   }
 
   /**
    * Test Dolibarr API connection
    */
   testConnection(): Observable<boolean> {
-    const url = this.getApiUrl('status');
-    
-    return this.http.get(url).pipe(
+    return this.getApiUrl$('status').pipe(
+      switchMap(url => this.http.get(url)),
       map(() => true),
       catchError(() => {
         return throwError(() => new Error('Cannot connect to Dolibarr API'));

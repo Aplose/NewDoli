@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -36,22 +36,22 @@ import { ConfigService } from '../../services/config.service';
             </div>
           </div>
 
-          <div *ngIf="errorMessage" class="error-message global-error">
-            {{ errorMessage }}
+          <div *ngIf="errorMessage()" class="error-message global-error">
+            {{ errorMessage() }}
           </div>
 
-          <div *ngIf="successMessage" class="success-message">
-            {{ successMessage }}
+          <div *ngIf="successMessage()" class="success-message">
+            {{ successMessage() }}
           </div>
 
           <div class="form-actions">
             <button
               type="submit"
               class="btn btn-primary"
-              [disabled]="configForm.invalid || isLoading"
+              [disabled]="configForm.invalid || isLoading()"
             >
-              <span *ngIf="isLoading" class="spinner"></span>
-              {{ isLoading ? 'Saving...' : 'Save Configuration' }}
+              <span *ngIf="isLoading()" class="spinner"></span>
+              {{ isLoading() ? 'Saving...' : 'Save Configuration' }}
             </button>
           </div>
         </form>
@@ -66,9 +66,16 @@ import { ConfigService } from '../../services/config.service';
 })
 export class ConfigComponent implements OnInit {
   configForm: FormGroup;
-  isLoading = false;
-  errorMessage = '';
-  successMessage = '';
+  
+  // Signals for component state
+  private errorMessageSignal = signal('');
+  private successMessageSignal = signal('');
+  
+  // Computed signals
+  public readonly errorMessage = computed(() => this.errorMessageSignal());
+  public readonly successMessage = computed(() => this.successMessageSignal());
+  public readonly isLoading = computed(() => this.configService.isLoading());
+  public readonly isConfigured = computed(() => this.configService.isConfigured());
 
   constructor(
     private formBuilder: FormBuilder,
@@ -80,6 +87,16 @@ export class ConfigComponent implements OnInit {
         Validators.required,
         Validators.pattern(/^https?:\/\/.+/)
       ]]
+    });
+    
+    // Effect to handle configuration state changes
+    effect(() => {
+      if (this.isConfigured()) {
+        console.log('Configuration is complete, redirecting to login...');
+        setTimeout(() => {
+          this.router.navigate(['/login']);
+        }, 2000);
+      }
     });
   }
 
@@ -97,30 +114,23 @@ export class ConfigComponent implements OnInit {
       }
     } catch (error) {
       console.error('Error loading current configuration:', error);
+      this.errorMessageSignal.set('Failed to load current configuration');
     }
   }
 
   async onSubmit(): Promise<void> {
     if (this.configForm.valid) {
-      this.isLoading = true;
-      this.errorMessage = '';
-      this.successMessage = '';
+      this.errorMessageSignal.set('');
+      this.successMessageSignal.set('');
 
       try {
         const url = this.configForm.value.dolibarrUrl;
         await this.configService.setDolibarrUrl(url);
         
-        this.successMessage = 'Configuration saved successfully! Redirecting to login...';
-        
-        // Wait a moment to show success message, then redirect
-        setTimeout(() => {
-          this.router.navigate(['/login']);
-        }, 2000);
+        this.successMessageSignal.set('Configuration saved successfully! Redirecting to login...');
         
       } catch (error: any) {
-        this.errorMessage = error.message || 'Failed to save configuration. Please try again.';
-      } finally {
-        this.isLoading = false;
+        this.errorMessageSignal.set(error.message || 'Failed to save configuration. Please try again.');
       }
     } else {
       // Mark all fields as touched to show validation errors

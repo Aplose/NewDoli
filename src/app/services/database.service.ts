@@ -80,7 +80,6 @@ export interface SyncLog {
 }
 
 export interface Configuration {
-  id?: number;
   key: string;
   value: string;
   type: 'string' | 'number' | 'boolean' | 'json';
@@ -109,7 +108,7 @@ export class NewDoliDatabase extends Dexie {
       thirdParties: '++id, name, name_alias, email, client, supplier, prospect, status, created_at, updated_at, last_contact',
       fieldVisibility: '++id, user_id, entity_type, field_name, visible, created_at, updated_at',
       syncLog: '++id, entity_type, entity_id, action, synced, created_at, synced_at',
-      configurations: '++id, key, type, created_at, updated_at'
+      configurations: 'key, value, type, created_at, updated_at'
     });
 
     // Add hooks for automatic timestamps
@@ -329,7 +328,7 @@ export class DatabaseService {
   // Utility methods
   // Configuration methods
   async getConfiguration(key: string): Promise<Configuration | undefined> {
-    return await this.db.configurations.where('key').equals(key).first();
+    return await this.db.configurations.get(key);
   }
 
   async getConfigurationValue(key: string, defaultValue?: any): Promise<any> {
@@ -356,7 +355,7 @@ export class DatabaseService {
     }
   }
 
-  async setConfiguration(key: string, value: any, type: 'string' | 'number' | 'boolean' | 'json' = 'string', description?: string): Promise<number> {
+  async setConfiguration(key: string, value: any, type: 'string' | 'number' | 'boolean' | 'json' = 'string', description?: string): Promise<string> {
     const existingConfig = await this.getConfiguration(key);
     
     let stringValue: string;
@@ -377,23 +376,17 @@ export class DatabaseService {
         stringValue = String(value);
     }
 
-    if (existingConfig) {
-      return await this.db.configurations.update(existingConfig.id!, {
-        value: stringValue,
-        type: type,
-        description: description,
-        updated_at: new Date()
-      });
-    } else {
-      return await this.db.configurations.add({
-        key: key,
-        value: stringValue,
-        type: type,
-        description: description,
-        created_at: new Date(),
-        updated_at: new Date()
-      });
-    }
+    const configData: Configuration = {
+      key: key,
+      value: stringValue,
+      type: type,
+      description: description,
+      created_at: existingConfig ? existingConfig.created_at : new Date(),
+      updated_at: new Date()
+    };
+
+    await this.db.configurations.put(configData);
+    return key;
   }
 
   async getAllConfigurations(): Promise<Configuration[]> {
@@ -401,10 +394,7 @@ export class DatabaseService {
   }
 
   async deleteConfiguration(key: string): Promise<void> {
-    const config = await this.getConfiguration(key);
-    if (config) {
-      await this.db.configurations.delete(config.id!);
-    }
+    await this.db.configurations.delete(key);
   }
 
   async clearAllData(): Promise<void> {

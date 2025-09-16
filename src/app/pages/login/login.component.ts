@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -47,17 +47,17 @@ import { AuthService, LoginCredentials } from '../../services/auth.service';
             </div>
           </div>
 
-          <div *ngIf="errorMessage" class="error-message global-error">
-            {{ errorMessage }}
+          <div *ngIf="errorMessage()" class="error-message global-error">
+            {{ errorMessage() }}
           </div>
 
           <button
             type="submit"
             class="btn btn-primary"
-            [disabled]="loginForm.invalid || isLoading"
+            [disabled]="loginForm.invalid || isLoading()"
           >
-            <span *ngIf="isLoading" class="spinner"></span>
-            {{ isLoading ? 'Signing in...' : 'Sign In' }}
+            <span *ngIf="isLoading()" class="spinner"></span>
+            {{ isLoading() ? 'Signing in...' : 'Sign In' }}
           </button>
         </form>
 
@@ -71,9 +71,16 @@ import { AuthService, LoginCredentials } from '../../services/auth.service';
 })
 export class LoginComponent implements OnInit {
   loginForm: FormGroup;
-  isLoading = false;
-  errorMessage = '';
-  returnUrl = '';
+  
+  // Signals for component state
+  private errorMessageSignal = signal('');
+  private returnUrlSignal = signal('');
+  
+  // Computed signals
+  public readonly errorMessage = computed(() => this.errorMessageSignal());
+  public readonly returnUrl = computed(() => this.returnUrlSignal());
+  public readonly isLoading = computed(() => this.authService.isLoading());
+  public readonly isAuthenticated = computed(() => this.authService.isAuthenticated());
 
   constructor(
     private formBuilder: FormBuilder,
@@ -85,49 +92,46 @@ export class LoginComponent implements OnInit {
       login: ['', [Validators.required]],
       password: ['', [Validators.required]]
     });
+    
+    // Effect to handle authentication state changes
+    effect(() => {
+      if (this.isAuthenticated()) {
+        console.log('User is authenticated, redirecting to:', this.returnUrl());
+        this.router.navigate([this.returnUrl()]);
+      }
+    });
   }
 
   ngOnInit(): void {
     // Get return URL from route parameters or default to '/dashboard'
-    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+    this.returnUrlSignal.set(returnUrl);
     
     // If user is already logged in, redirect to return URL
     if (this.authService.isAuthenticated()) {
-      this.router.navigate([this.returnUrl]);
+      this.router.navigate([returnUrl]);
     }
   }
 
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.loginForm.valid) {
-      this.isLoading = true;
-      this.errorMessage = '';
+      this.errorMessageSignal.set('');
 
       const credentials: LoginCredentials = {
         login: this.loginForm.value.login,
         password: this.loginForm.value.password
       };
 
-      this.authService.login(credentials).then(observable => {
-        observable.subscribe({
-          next: (success: boolean) => {
-            if (success) {
-              this.router.navigate([this.returnUrl]);
-            }
-          },
-          error: (error: any) => {
-            console.error('Login error:', error);
-            this.errorMessage = error.message || 'Login failed. Please check your credentials and try again.';
-            this.isLoading = false;
-          },
-          complete: () => {
-            this.isLoading = false;
-          }
-        });
-      }).catch(error => {
-        console.error('Login promise error:', error);
-        this.errorMessage = error.message || 'Login failed. Please try again.';
-        this.isLoading = false;
-      });
+      try {
+        const success = await this.authService.login(credentials);
+        if (success) {
+          console.log('Login successful, redirecting to:', this.returnUrl());
+          this.router.navigate([this.returnUrl()]);
+        }
+      } catch (error: any) {
+        console.error('Login error:', error);
+        this.errorMessageSignal.set(error.message || 'Login failed. Please check your credentials and try again.');
+      }
     } else {
       // Mark all fields as touched to show validation errors
       Object.keys(this.loginForm.controls).forEach(key => {

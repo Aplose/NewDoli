@@ -40,3 +40,25 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Sensitive data and configuration
+*.env
+.env.*
+config.local.*
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Database files with sensitive data
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files that might contain sensitive information
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
